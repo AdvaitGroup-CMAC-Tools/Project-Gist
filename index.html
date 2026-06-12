@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Synopsis Generator</title>
+  <style>
+    :root {
+      --navy: #1A4084; --navy-2: #3A66AA; --sky: #83B1DC;
+      --paper: #F1F1F1; --grey: #808080; --ink: #1C1C1C;
+      --line: #d4dae6; --panel: #f5f7fb;
+      --ok: #1f7a4d; --warn: #b45309; --err: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Calibri, "Segoe UI", Arial, sans-serif; color: var(--ink); background: #e9edf4; }
+    header { padding: 16px clamp(16px,4vw,40px); border-bottom: 3px solid var(--navy); background: #fff;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 22px; color: var(--navy); }
+    .sub-h { font-size: 12.5px; color: var(--grey); margin-top: 2px; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid var(--sky);
+      background: #eef4fb; color: var(--navy); font-size: 12.5px; border-radius: 6px; white-space: nowrap; font-weight: 600; }
+    main { width: min(1240px, calc(100vw - 28px)); margin: 20px auto 40px;
+      display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+    section { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .pane-head { padding: 13px 16px; border-bottom: 1px solid var(--line); background: var(--navy); color: #fff; font-weight: 700; font-size: 15px; }
+    .pane-body { padding: 16px; }
+    .left { position: sticky; top: 16px; }
+    label.lbl { display: block; margin: 0 0 6px; font-weight: 700; font-size: 13.5px; color: var(--navy); }
+    input[type=file] { width: 100%; border: 1px dashed var(--navy-2); border-radius: 8px; padding: 14px 10px; font: inherit; background: var(--panel); }
+    .check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--ink); }
+    .check input { margin-top: 2px; }
+    .hint { color: var(--grey); font-size: 12.5px; line-height: 1.45; margin: 8px 0 0; }
+    .btn { width: 100%; margin-top: 12px; border: 0; border-radius: 8px; padding: 12px 14px; background: var(--navy);
+      color: #fff; font-weight: 700; cursor: pointer; font-size: 14px; font-family: inherit; }
+    .btn:hover { background: #15356d; }
+    .btn.secondary { background: #fff; color: var(--navy); border: 1px solid var(--navy); }
+    .btn.secondary:hover { background: var(--panel); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .status { margin-top: 12px; min-height: 18px; font-size: 13px; color: var(--grey); line-height: 1.4; }
+    .status.ok { color: var(--ok); } .status.err { color: var(--err); font-weight: 600; }
+    .status.busy { color: var(--navy); font-weight: 600; background: #eef4fb; border: 1px solid var(--sky); border-radius: 8px; padding: 10px 12px; }
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--sky); border-top-color: var(--navy); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .note { margin-top: 16px; padding: 12px; background: #fff7ed; border: 1px solid #fcd9a8; border-radius: 8px; font-size: 12.5px; color: #7c4a08; line-height: 1.5; }
+    .note b { color: var(--warn); }
+    .seclist { margin: 10px 0 0; padding-left: 18px; color: var(--grey); font-size: 12.5px; line-height: 1.5; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip { font-size: 11.5px; padding: 4px 8px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 999px; color: #334155; cursor: pointer; user-select: none; }
+    .chip:hover { border-color: var(--navy-2); color: var(--navy); }
+    .chip-group { margin-top: 10px; }
+    .chip-group h4 { margin: 0 0 2px; font-size: 12px; color: var(--navy); text-transform: uppercase; letter-spacing: .3px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-weight: 700; font-size: 13px; color: var(--navy); margin-bottom: 4px; }
+    .field .sub { font-weight: 400; color: var(--grey); font-size: 11.5px; }
+    .field input, .field textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px;
+      font: inherit; font-size: 13.5px; color: var(--ink); background: #fff; resize: vertical; }
+    .field input:focus, .field textarea:focus { outline: 2px solid var(--sky); border-color: var(--navy-2); }
+    .filled { background: #f3f8f3 !important; }
+    table.value { width: 100%; border-collapse: collapse; margin-top: 2px; }
+    table.value th, table.value td { border: 1px solid var(--line); padding: 4px; }
+    table.value th { background: var(--panel); font-size: 12px; color: var(--navy); }
+    table.value td input { border: 0; width: 100%; padding: 6px; font: inherit; font-size: 13px; text-align: right; background: transparent; }
+    table.value td:first-child { background: var(--panel); font-weight: 700; font-size: 12.5px; color: var(--navy); }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .toolbar .btn { width: auto; margin: 0; padding: 9px 16px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } .left { position: static; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Order Synopsis Generator</h1>
+      <div class="sub-h">Reads LOA / Work Order / Contract Agreement / Amendment (PGVCL, DGVCL, GETCO, UPPTCL, PowerGrid, NTPC, IndiGrid, GBPL &hellip;) and drafts the synopsis</div>
+    </div>
+    <span class="badge">Runs in your browser &middot; No server &middot; No cloud</span>
+  </header>
+
+  <main>
+    <section class="left">
+      <div class="pane-head">1 &nbsp;Read the Order PDF</div>
+      <div class="pane-body">
+        <label class="lbl" for="pdf">Order / LOA PDF</label>
+        <input id="pdf" type="file" accept="application/pdf,.pdf">
+        <label class="check"><input id="ocr" type="checkbox" checked>
+          <span>Auto-OCR scanned PDFs (slower, needs internet the first time). Most government LOAs are scanned images.</span></label>
+        <button id="extract" class="btn">Extract &amp; Pre-fill</button>
+        <div id="status" class="status">Upload a PDF, then Extract. Everything is read from the LOA itself. Digital PDFs read instantly; scanned ones run OCR.</div>
+
+        <div id="helpers" style="display:none">
+          <div class="chip-group"><h4>Detected dates <span class="sub" style="font-weight:400">(click &rarr; LOA Date)</span></h4><div id="chip-dates" class="chips"></div></div>
+          <div class="chip-group"><h4>Detected amounts <span class="sub" style="font-weight:400">(click to copy)</span></h4><div id="chip-amounts" class="chips"></div></div>
+        </div>
+
+        <div class="note">
+          <b>Verify every figure.</b> Extraction is a draft. On scanned PDFs, OCR can misread digits &mdash; exactly where it hurts most (&#8377; values, dates). The <i>Areas of Concern</i> and <i>Technical Concerns</i> are auto-flagged <i>candidate</i> clauses, not finished judgement: curate them.
+        </div>
+        <ul class="seclist">
+          <li>PDF and OCR run inside this tab</li>
+          <li>No cookies, accounts, or analytics</li>
+          <li>OCR engine is fetched from a CDN on first use</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="pane-head">2 &nbsp;Synopsis &mdash; review, edit, export</div>
+      <div class="toolbar">
+        <button id="copy" class="btn secondary">Copy as text</button>
+        <button id="word" class="btn">Download Word (.doc)</button>
+        <button id="reset" class="btn secondary">Clear all fields</button>
+      </div>
+      <div class="pane-body" id="formWrap"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+
+    const FIELDS = [
+      { id: 'title',     label: 'Project Title / Subject', type: 'area', rows: 2, auto: true },
+      { id: 'utility',   label: 'Customer / Utility', type: 'input', auto: true },
+      { id: 'contractor',label: 'Contractor (awarded to)', type: 'input', auto: true },
+      { id: 'scope',     label: 'Scope & Type of Work', type: 'area', rows: 3, auto: true },
+      { id: 'loa',       label: 'LOA / Order Reference No.', type: 'input', auto: true },
+      { id: 'tender',    label: 'Tender / Notice No.', type: 'input', auto: true },
+      { id: 'loaDate',   label: 'LOA / Order Date', type: 'input', auto: true },
+      { id: 'period',    label: 'Completion Period', type: 'input', auto: true },
+      { id: 'compDate',  label: 'Completion Date', sub: '(auto-computed from date + period)', type: 'input', auto: true },
+      { id: 'commence',  label: 'Time for Commencement', type: 'input', auto: true },
+      { id: 'qty',       label: 'Quantity', sub: '(e.g. CKM / km / Nos.)', type: 'input', auto: true },
+      { id: '__value',   type: 'value' },
+      { id: 'variation', label: 'Quantity / Price Variation', type: 'area', rows: 3, auto: true },
+      { id: 'security',  label: 'Performance Security / Security Deposit', type: 'area', rows: 3, auto: true },
+      { id: 'advance',   label: 'Advance Payment', type: 'area', rows: 2, auto: true },
+      { id: 'warranty',  label: 'Warranty / Guarantee', type: 'area', rows: 2, auto: true },
+      { id: 'dlp',       label: 'Defect Liability Period', type: 'area', rows: 2, auto: true },
+      { id: 'ld',        label: 'Liquidated Damages / Penalty', type: 'area', rows: 4, auto: true },
+      { id: 'payment',   label: 'Payment Terms', type: 'area', rows: 3, auto: true },
+      { id: 'insurance', label: 'Insurance', type: 'area', rows: 3, auto: true },
+      { id: 'billing',   label: 'Billing & Payment Process', type: 'area', rows: 3, auto: true },
+      { id: 'concerns',  label: 'Areas of Concern', sub: '— auto-flagged candidate clauses; curate', type: 'area', rows: 6, auto: true },
+      { id: 'technical', label: 'Technical Concerns', sub: '— auto-flagged candidate clauses; curate', type: 'area', rows: 4, auto: true }
+    ];
+    const VALUE_ROWS = ['Basic', 'GST', 'Gross'];
+    const VALUE_COLS = ['Supply', 'Installation', 'Total'];
+
+    const formWrap = document.getElementById('formWrap');
+    const statusEl = document.getElementById('status');
+    const ocrChk = document.getElementById('ocr');
+
+    function buildForm() {
+      formWrap.innerHTML = '';
+      for (const f of FIELDS) {
+        if (f.type === 'value') { formWrap.appendChild(valueTable()); continue; }
+        const wrap = document.createElement('div'); wrap.className = 'field';
+        const lbl = document.createElement('label');
+        lbl.innerHTML = f.label + (f.sub ? ` <span class="sub">${f.sub}</span>` : '');
+        wrap.appendChild(lbl);
+        let el;
+        if (f.type === 'area') { el = document.createElement('textarea'); el.rows = f.rows || 3; }
+        else { el = document.createElement('input'); el.type = 'text'; }
+        el.id = 'f_' + f.id;
+        if (f.auto) el.placeholder = 'Auto-fills from PDF — or type manually';
+        wrap.appendChild(el); formWrap.appendChild(wrap);
+      }
+    }
+    function valueTable() {
+      const wrap = document.createElement('div'); wrap.className = 'field';
+      wrap.innerHTML = '<label>Order Value <span class="sub">(&#8377; — Basic auto-filled, GST auto-computed)</span></label>';
+      const t = document.createElement('table'); t.className = 'value';
+      let html = '<tr><th></th>' + VALUE_COLS.map(c => `<th>${c}</th>`).join('') + '</tr>';
+      for (const r of VALUE_ROWS) html += `<tr><td>${r}</td>` + VALUE_COLS.map(c => `<td><input id="v_${r}_${c}" inputmode="decimal" placeholder="0.00"></td>`).join('') + '</tr>';
+      t.innerHTML = html; wrap.appendChild(t); return wrap;
+    }
+
+    const val = id => (document.getElementById('f_' + id)?.value || '').trim();
+    const cell = (r, c) => (document.getElementById(`v_${r}_${c}`)?.value || '').trim();
+
+    const extractBtn = document.getElementById('extract');
+    extractBtn.addEventListener('click', async () => {
+      const file = document.getElementById('pdf').files[0];
+      if (!file) return setStatus('Choose a PDF first.', 'err');
+      if (!file.name.toLowerCase().endsWith('.pdf')) return setStatus('Only PDF files are accepted.', 'err');
+      if (file.size > 60 * 1024 * 1024) return setStatus('Please use a PDF under 60 MB.', 'err');
+
+      extractBtn.disabled = true;
+      extractBtn.textContent = 'Working…';
+      try {
+        setStatus('Reading the PDF…', 'busy');
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+        setStatus('Checking for a text layer…', 'busy');
+        let text = await textLayer(pdf);
+        let usedOcr = false;
+        if (countWords(text) < 30) {
+          if (!ocrChk.checked) { setStatus('No text layer found — this looks like a scanned PDF. Tick "Auto-OCR" and try again.', 'err'); return; }
+          text = await ocrPdf(pdf, m => setStatus(m, 'busy'));
+          usedOcr = true;
+        }
+        if (countWords(text) < 20) { setStatus('Could not read meaningful text from this PDF.', 'err'); return; }
+
+        setStatus('Extracting fields…', 'busy');
+        const data = extractAll(text);
+        populate(data);
+        renderHelpers(text);
+        const docType = /Amendment No\.\s*0?\d|Amendment\s+to\s+(?:Supply|Service)/i.test(text) ? ' · Amendment Order detected' :
+                  /UPPTCL|Uttar Pradesh Power Transmission/i.test(text) ? ' · UPPTCL Contract detected' :
+                  /Contract Agreement|Agreement No/i.test(text) ? ' · Contract Agreement detected' :
+                  /Letter of Award|Letter of Acceptance/i.test(text) ? ' · Letter of Award (LOA) detected' :
+                  /\/LOA\/|LOA No\./i.test(text) ? ' · LOA detected' : '';
+        setStatus(`Done — ${pdf.numPages} page(s), ${countWords(text)} words${usedOcr ? ' via OCR. Verify EVERY figure and date.' : '. Review each field.'}${docType}`, 'ok');
+      } catch (e) {
+        setStatus('Error: ' + e.message, 'err');
+      } finally {
+        extractBtn.disabled = false;
+        extractBtn.textContent = 'Extract & Pre-fill';
+      }
+    });
+
+    async function textLayer(pdf) {
+      let parts = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const c = await page.getTextContent();
+        parts.push(c.items.map(it => it.str).join(' '));
+      }
+      PAGES = parts.map(normalize);
+      return PAGES.join('\n');
+    }
+
+    async function ocrPdf(pdf, onProgress) {
+      onProgress('Loading OCR engine (first run can take 20–60s)…');
+      const Tesseract = await loadTesseract();
+      const worker = await Tesseract.createWorker('eng', 1);
+      try { await worker.setParameters({ preserve_interword_spaces: '1', tessedit_pageseg_mode: '6' }); } catch (e) {}
+      let out = [];
+      try {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          onProgress(`OCR page ${i} of ${pdf.numPages}… (this can take a while)`);
+          const page = await pdf.getPage(i);
+          // Render at high resolution so digits/decimals in scanned financial tables stay legible.
+          const base = page.getViewport({ scale: 1 });
+          const scale = Math.min(4, Math.max(3, 2400 / base.width));
+          const vp = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = vp.width; canvas.height = vp.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          const { data } = await worker.recognize(canvas);
+          out.push(data.text);
+          canvas.width = canvas.height = 0;
+        }
+      } finally { await worker.terminate(); }
+      PAGES = out.map(normalize);
+      return PAGES.join('\n');
+    }
+
+    function loadTesseract() {
+      return new Promise((res, rej) => {
+        if (window.Tesseract) return res(window.Tesseract);
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = () => res(window.Tesseract);
+        s.onerror = () => rej(new Error('Could not load the OCR engine (needs internet).'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // --- page citation + amount helpers ---
+    let PAGES = [];
+    function pageOf(snippet) {
+      if (!snippet) return '';
+      const key = String(snippet).replace(/\s+/g, ' ').trim().slice(0, 28);
+      if (!key) return '';
+      for (let i = 0; i < PAGES.length; i++) if (PAGES[i].replace(/\s+/g, ' ').includes(key)) return i + 1;
+      return '';
+    }
+    const cite = (snippet) => { const p = pageOf(snippet); return p ? ` (p.${p})` : ''; };
+    function parseAmt(s) { const n = parseFloat(String(s).replace(/[,\s₹]/g, '')); return isFinite(n) ? n : null; }
+    function amtsOnPage(p) { return [...(PAGES[p] || '').matchAll(/([\d][\d,]{5,}(?:\.\d{1,2})?)/g)].map(m => parseAmt(m[1])).filter(v => v && v > 100000); }
+
+    // Parse an amount written in words (Indian crore/lakh system). Recovers values when digits are OCR-garbled.
+    // "Thirty Nine Crore Six Lakh Thirty Six Thousand Six Hundred Nine" -> 390636609
+    function wordsToNumberINR(str) {
+      if (!str) return null;
+      const u = { zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fourty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90 };
+      const sc = { hundred:100,thousand:1000,lakh:100000,lakhs:100000,lac:100000,lacs:100000,crore:10000000,crores:10000000,cr:10000000 };
+      const toks = str.toLowerCase().replace(/[^a-z ]+/g, ' ').split(/\s+/).filter(Boolean);
+      let total = 0, cur = 0, seen = false, scaled = false;
+      for (const tk of toks) {
+        if (u[tk] != null) { cur += u[tk]; seen = true; }
+        else if (tk === 'hundred') { cur = (cur || 1) * 100; seen = true; }
+        else if (sc[tk] != null) { total += (cur || 1) * sc[tk]; cur = 0; seen = true; scaled = true; }
+        // ignore: rupees, and, only, paisa, paise, rs, inr
+      }
+      total += cur;
+      return (seen && scaled) ? total : null;
+    }
+
+    // Harvest EVERY monetary amount across ALL pages (commas, decimals, ₹/Rs/INR, trailing /-), with page + context.
+    function harvestAmounts() {
+      const out = [];
+      for (let p = 0; p < PAGES.length; p++) {
+        const pg = PAGES[p];
+        for (const m of pg.matchAll(/(?:₹|Rs\.?|INR)?\s*([\d][\d,]{4,}(?:\.\d{1,2})?)(?:\s*\/-)?/gi)) {
+          const v = parseAmt(m[1]); if (!v || v < 100000) continue;
+          out.push({ val: v, raw: m[1], page: p + 1, ctx: pg.slice(Math.max(0, m.index - 70), m.index + 30).toLowerCase() });
+        }
+      }
+      return out;
+    }
+
+    // Document-wide resolver (reviews the COMPLETE document before finalizing the awarded value).
+    // Ranks every candidate by context anchors + words-form confirmation, then reconciles basic/GST and any supply+installation split.
+    function resolveAwardedValue(text) {
+      const amts = harvestAmounts();
+      if (!amts.length) return null;
+      // Values written in words → high-confidence candidates (OCR-robust)
+      const words = [];
+      for (const m of text.matchAll(/(?:Rupees|Rs\.?|INR)\s+([A-Za-z][A-Za-z \-]{10,160}?)\s*(?:only|paisa\s+only|paise\s+only|\))/gi)) {
+        const n = wordsToNumberINR(m[1]); if (n && n > 100000) words.push(n);
+      }
+      // Decimal-loss recovery: OCR often drops the '.' in "88842923.37" -> "8884292337" (100x too big).
+      // If a harvested amount has no decimal and is ~100x a words-form value, correct it back.
+      for (const a of amts) {
+        if (a.val >= 1e9 && !/\.\d/.test(String(a.raw || '')) ) {
+          const w = words.find(w => Math.abs(a.val / 100 - w) <= Math.max(2, w * 0.001));
+          if (w) { a.val = w; a.corrected = true; }
+        }
+      }
+      const grossAnchor = /awarded|grand total|total (?:contract|po) amount|total amount inclusive|total cost of award|total for supply and installation|order price|loa value|total \( rs|net payable|total value/i;
+      const wordsConfirm = v => words.some(w => Math.abs(w - Math.round(v)) <= Math.max(2, v * 0.0005));
+      const score = a => (grossAnchor.test(a.ctx) ? 100 : 0) + (/incl|including|with gst|inclusive of|grand/i.test(a.ctx) ? 25 : 0) + (wordsConfirm(a.val) ? 70 : 0) + (a.corrected ? 40 : 0) + Math.log10(a.val);
+      const ranked = amts.slice().sort((x, y) => score(y) - score(x));
+      const gross = ranked[0];
+      // Flag low confidence if the winner is a long no-decimal integer with no corroboration (likely OCR-mangled).
+      const lowConfidence = !words.length && !grossAnchor.test(gross.ctx) && gross.val >= 1e9 && !/\.\d/.test(String(gross.raw || ''));
+      // Try a supply + installation = gross split anywhere in the document
+      for (let i = 0; i < amts.length; i++) for (let j = 0; j < amts.length; j++) {
+        if (i === j || amts[i].val <= amts[j].val) continue;
+        if (amts[i].val === gross.val || amts[j].val === gross.val) continue;
+        if (Math.abs(amts[i].val + amts[j].val - gross.val) < 2) {
+          const s = findBasic(amts[i].val, null);
+          const inst = findBasic(amts[j].val, s && s.basic ? s.gst / s.basic : null);
+          return { supplyGross: amts[i].val, installGross: amts[j].val, totalGross: gross.val,
+            supplyBasic: s ? s.basic : null, supplyGst: s ? s.gst : null,
+            installBasic: inst ? inst.basic : null, installGst: inst ? inst.gst : null,
+            grossPage: gross.page, supplyPage: s ? s.page : '', installPage: inst ? inst.page : '', resolved: true };
+        }
+      }
+      // Else single value: split basic + GST if possible
+      const bg = findBasic(gross.val, null);
+      if (bg) return { single: true, totalBasic: bg.basic, totalGst: bg.gst, totalGross: gross.val, grossPage: gross.page, resolved: true, lowConfidence };
+      return { single: true, totalBasic: null, totalGst: null, totalGross: gross.val, grossPage: gross.page, resolved: true, lowConfidence };
+    }
+
+    // Identify the three "gross" totals by arithmetic (Supply + Installation = Total),
+    // independent of OCR-mangled labels. Scans the WHOLE document and ranks candidates
+    // (the awarded grand total is the largest sum, and/or sits near an award anchor).
+    function findGrossTriple() {
+      const seen = new Map();
+      for (let p = 0; p < PAGES.length; p++) for (const v of amtsOnPage(p)) if (!seen.has(v)) seen.set(v, p + 1);
+      const list = [...seen.entries()].map(([v, p]) => ({ v, p })).sort((a, b) => b.v - a.v).slice(0, 160);
+      const anchorRe = /awarded|grand total|total cost of award|total for supply and installation|total contract/i;
+      let best = null;
+      for (let i = 0; i < list.length; i++) for (let j = 0; j < list.length; j++) {
+        if (i === j || list[i].v < list[j].v) continue;
+        const need = list[i].v + list[j].v;
+        for (let k = 0; k < list.length; k++) {
+          if (k === i || k === j) continue;
+          if (Math.abs(need - list[k].v) < 2) {
+            const anchored = anchorRe.test(PAGES[list[k].p - 1] || '') ? 1 : 0;
+            const sc = list[k].v + anchored * 1e13;
+            if (!best || sc > best.sc) best = { supply: list[i].v, install: list[j].v, total: list[k].v, page: list[k].p, sc };
+          }
+        }
+      }
+      return best;
+    }
+    // For a known gross, find a page where two amounts sum to it (basic + GST).
+    function pairFromList(list, grossVal) {
+      for (let i = 0; i < list.length; i++) for (let j = 0; j < list.length; j++) {
+        if (i !== j && list[i].val > list[j].val && Math.abs(list[i].val + list[j].val - grossVal) < 2)
+          return { basic: list[i].val, gst: list[j].val, page: list[i].page };
+      }
+      return null;
+    }
+    function splitFor(grossVal) {
+      if (!grossVal) return null;
+      // 1) prefer a basic + GST pair on the same page (most reliable)
+      for (let p = 0; p < PAGES.length; p++) {
+        const r = pairFromList(amtsOnPage(p).map(v => ({ val: v, page: p + 1 })), grossVal);
+        if (r) return r;
+      }
+      // 2) fall back to any pair across the whole document (handles OCR splitting them across pages)
+      const all = [];
+      for (let p = 0; p < PAGES.length; p++) for (const v of amtsOnPage(p)) all.push({ val: v, page: p + 1 });
+      return pairFromList(all, grossVal);
+    }
+
+    // Find the Basic for a gross. Prefer a Basic+GST pair; else find the Basic alone
+    // (an amount ~80-95% of gross, ideally near a "without/excluding GST" cue) and COMPUTE GST = gross - basic.
+    function findBasic(grossVal, refRate) {
+      if (!grossVal) return null;
+      const pair = splitFor(grossVal);
+      if (pair) return pair; // {basic, gst, page}
+      let best = null;
+      for (let p = 0; p < PAGES.length; p++) {
+        const pg = PAGES[p];
+        for (const m of pg.matchAll(/([\d][\d,]{5,}(?:\.\d{1,2})?)/g)) {
+          const b = parseAmt(m[1]);
+          if (!b || b >= grossVal) continue;
+          const rate = (grossVal - b) / b;           // implied GST rate on this basic
+          if (rate <= 0.02 || rate >= 0.30) continue; // sane GST band (2%–30%)
+          const ctx = pg.slice(Math.max(0, m.index - 60), m.index).toLowerCase();
+          const anchored = /without\s*gst|excluding\s*gst|for\s*price|total\s*excl/.test(ctx);
+          const rateScore = refRate != null ? Math.abs(rate - refRate)
+            : Math.min(Math.abs(rate - 0.18), Math.abs(rate - 0.12), Math.abs(rate - 0.05), Math.abs(rate - 0.28));
+          const score = (anchored ? 0 : 1) + rateScore;
+          if (!best || score < best.score) best = { basic: b, gst: grossVal - b, page: p + 1, score };
+        }
+      }
+      return best;
+    }
+
+    // Classify component columns (in left-to-right order) using the best header line above the data row.
+    function classifyColumns(headerRegion, n) {
+      const typeRe = /value of supply|supply of test|dismantl\w*|installation|erection|stringing|service|supply|equipment|hardware|material|conductor/gi;
+      const toType = w => /dismantl|install|erection|stringing|service/i.test(w) ? 'install' : 'supply';
+      let best = null;
+      for (const ln of headerRegion.split('\n')) {
+        const ks = [...ln.matchAll(typeRe)].map(m => toType(m[0]));
+        if (!ks.length) continue;
+        if (!best || Math.abs(ks.length - n) < Math.abs(best.length - n) ||
+            (Math.abs(ks.length - n) === Math.abs(best.length - n) && ks.length > best.length)) best = ks;
+      }
+      return best || [];
+    }
+
+    // Component price table: typed columns (e.g. S-1 Supply, S-2 Dismantling/Installation, S-3 Supply of Test Equip)
+    // summing to a Project Cost, then GST, then Grand Total. Sums all Supply-type columns into Supply and all
+    // Installation-type columns into Installation. Totals are RECONSTRUCTED from the (clean) component cells, so a
+    // scan that mangles the Project Cost / GST / Grand Total cells (dropped decimals, digit→letter) still resolves.
+    function findComponentTable(text) {
+      const T = repairNumbers(text);
+      if (!/Project Cost/i.test(T) && !/Grand\s+Total\s+[A-Za-z]*cluding\s+GST/i.test(T)) return null;
+      if (!/Value of Supply/i.test(T) && !/\bS\s*[-\s]?1\b/i.test(T)) return null;
+      const rate = (parseFloat(grab(T, /GST\s*@?\s*(\d{1,2})\s*%/i)) || 18) / 100;
+      const lines = T.split('\n');
+      // Data row = a line carrying ≥3 large amounts (the component cells)
+      const big = l => [...l.matchAll(/(\d{6,}(?:\.\d{1,2})?)/g)].map(m => parseAmt(m[1])).filter(v => v && v > 100000);
+      let rowIdx = -1;
+      for (let i = 0; i < lines.length; i++) { if (big(lines[i]).length >= 3) { rowIdx = i; break; } }
+      if (rowIdx < 0) return null;
+      const rowAmts = big(lines[rowIdx]);
+      if (rowAmts.length < 2) return null;
+      // Project Cost = the amount equal to the sum of the others; the rest are components
+      let comps = null;
+      for (let k = 0; k < rowAmts.length; k++) {
+        const rest = rowAmts.filter((_, i) => i !== k);
+        if (rest.length >= 2 && Math.abs(rest.reduce((a, b) => a + b, 0) - rowAmts[k]) < 5) { comps = rest; break; }
+      }
+      if (!comps) comps = rowAmts.slice();
+      // Classify each component column and sum by type (two supply columns add together)
+      const colTypes = classifyColumns(lines.slice(0, rowIdx).join('\n'), comps.length);
+      let supplyBasic = 0, installBasic = 0;
+      comps.forEach((v, i) => { (colTypes[i] === 'install') ? installBasic += v : supplyBasic += v; });
+      // Reconstruct totals from the clean components (immune to mangled total cells)
+      const totalBasic = Math.round(comps.reduce((a, b) => a + b, 0) * 100) / 100;
+      const totalGst = Math.round(totalBasic * rate * 100) / 100;
+      const totalGross = Math.round((totalBasic + totalGst) * 100) / 100;
+      // GST mode: a GST row carrying one figure → combined (Total only); per-column figures → bifurcate
+      let gstMode = 'combined', supplyGst = null, installGst = null;
+      const gstLine = lines.find(l => /GST\s*@?\s*\d+\s*%/i.test(l) && big(l).length >= comps.length && comps.length > 1);
+      if (gstLine) {
+        const gstAmts = big(gstLine);
+        if (gstAmts.length >= comps.length) {
+          gstMode = 'individual'; supplyGst = 0; installGst = 0;
+          comps.forEach((_, i) => { (colTypes[i] === 'install') ? installGst += (gstAmts[i] || 0) : supplyGst += (gstAmts[i] || 0); });
+        }
+      }
+      return { component: true, gstMode, reconstructed: true,
+        supplyBasic, installBasic, totalBasic, supplyGst, installGst, totalGst, totalGross,
+        gstRate: Math.round(rate * 100), grossPage: pageOf('Project Cost') || pageOf('Grand Total') || '' };
+    }
+
+    function extractAll(text) {
+      const d = {};
+      d.utility = (() => { const u = buildUtility(text); return u ? u + cite(u.replace(/\s*-\s*\S+$/, '').slice(0, 24)) : ''; })();
+      d.contractor = (() => { const c = clean(grab(text, /M\/?S\.?\s+([A-Z][A-Za-z0-9&.,'\- ]+?(?:Limited|Ltd\.?|Pvt\.?\s*Ltd\.?|Private Limited|LLP))\b/)); return c ? c + cite(c) : ''; })();
+      const subject = clean((grab(text, /Sub\.?\s*[:\-]\s*([\s\S]{20,420}?)\s*Dear Sir/i) || grab(text, /Sub\.?\s*[:\-]\s*([\s\S]{20,300}?)(?:\n\n|REFERENCE)/i))
+                  .replace(/^Letter of Acceptance\s*\(LOA\)\s*for\s*/i, '').replace(/^Notification of Award\s*(?:for)?\s*/i, ''));
+      const projectName = clean(grab(text, /Project\s*[:\-]\s*([^\n]{6,140})/i));
+      d.title = deriveTitle(text, d.utility) || projectName || subject.slice(0, 80);
+      d.loa = (() => {
+        // Amendment: capture both Supply Order and Service Order refs
+        const supOrd = clean(grab(text, /Supply Order No\.?\s*[:\-]?\s*([A-Za-z0-9]+)/i));
+        const svcOrd = clean(grab(text, /Service Order No\.?\s*[:\-]?\s*([A-Za-z0-9]+)/i));
+        if (supOrd && svcOrd) return supOrd + ' / ' + svcOrd + cite(supOrd);
+        if (supOrd) return supOrd + cite(supOrd);
+        if (svcOrd) return svcOrd + cite(svcOrd);
+        // GBPL/IndiGrid style: "Ref: GBPL/ADVAIT/ETC/24-25"
+        const refNo = normRef(grab(text, /\bRef\s*[:\-]\s*([A-Z][A-Z0-9]*(?:\/[A-Za-z0-9.\-]+){2,})/));
+        if (refNo) return refNo + cite(refNo.slice(0, 12));
+        let r = normRef(grab(text, /(?:LOA|LoA)\s*(?:No\.?|Ref\.?|Reference)?\s*[:\-]?\s*([A-Z][A-Za-z0-9]*(?:\s*\/\s*[A-Za-z0-9.\-]+){2,})/) || deepRef(text));
+        if (r) return r + cite(r.slice(0, 12));
+        r = clean(grab(text, /(?:PO No|P\.?\s*O\.?\s*No|Order No|Work Order No|W\.?O\.?\s*No|Contract No|Agreement No)\s*[:\-]?\s*([A-Za-z0-9\/\-]{4,})/i));
+        return r ? r + cite(r) : '';
+      })();
+      d.tender = (() => { const r = normRef(grab(text, /(?:Tender Notice No\.?|Notice No\.?)\s*[:\-]?\s*([A-Z][A-Za-z0-9]*(?:\s*\/\s*[A-Za-z0-9.\-]+){2,})/i)); return r ? r + cite(r.slice(0, 12)) : ''; })();
+      d.loaDate = (() => { const dt = pickDate(text); return dt ? dt + cite(dt) : ''; })();
+      d.qty = (() => {
+        let m = /([\d,]+(?:\.\d+)?)\s*CKM\b/i.exec(text) || /\bCKM\s*([\d,]+(?:\.\d+)?)/i.exec(text);
+        if (m) return m[1] + ' CKM' + cite(m[0]);
+        m = /([\d,]+(?:\.\d+)?)\s*\bKm\b/i.exec(text) || /\bKm\s*([\d,]+(?:\.\d+)?)/i.exec(text);
+        if (m) return m[1] + ' km' + cite(m[0]);
+        return '';
+      })();
+      d.scope = (() => {
+        if (subject) return subject + cite(subject);
+        const sow = clean(grab(text, /Scope of work(?:\s*under Contractor)?\s*[:\-]+\s*([\s\S]{20,260}?)(?:\n\s*\d{1,2}\.\s|Definition of|$)/i));
+        const base = projectName || sow;
+        return base ? base + cite(base.slice(0, 28)) : '';
+      })();
+
+      // Order value — identified by arithmetic (Supply + Installation = Total), independent of OCR labels
+      d.value = (() => {
+        const comp = findComponentTable(text);
+        if (comp) return comp;
+        const t = findGrossTriple();
+        if (t) {
+          let s = findBasic(t.supply, null);
+          let i = findBasic(t.install, s && s.basic ? s.gst / s.basic : null);
+          const rateOf = x => (x && x.basic) ? x.gst / x.basic : null;
+          const r = rateOf(s) != null ? rateOf(s) : rateOf(i);
+          let derived = '';
+          if (r != null) {
+            if (!s && t.supply) { const b = t.supply / (1 + r); s = { basic: b, gst: t.supply - b, page: '' }; derived = 'Supply'; }
+            if (!i && t.install) { const b = t.install / (1 + r); i = { basic: b, gst: t.install - b, page: '' }; derived = derived ? 'Supply & Installation' : 'Installation'; }
+          }
+          return { supplyGross: t.supply, installGross: t.install, totalGross: t.total,
+            supplyBasic: s ? s.basic : null, supplyGst: s ? s.gst : null,
+            installBasic: i ? i.basic : null, installGst: i ? i.gst : null,
+            grossPage: t.page, supplyPage: s ? s.page : '', installPage: i ? i.page : '', derived };
+        }
+        // Single-line order (service PO etc.): one Basic + GST = Total set
+        // Handles: "Order Price shall be INR 7,43,40,944/-" (GBPL LOA style, no decimal)
+        //          "Total Amount inclusive of Taxes 7,43,40,944" (Annexure-I style)
+        //          "Grand Total incl. GST 12,34,567.00" (standard style)
+        const gross = parseAmt(
+          grab(text, /(?:Total PO Amount|Grand Total(?:\s*(?:incl\.?|including|with)\s*GST)?|Total cost|Total awarded cost)[^\d]{0,25}([\d,]+(?:\.\d{1,2})?)/i) ||
+          grab(text, /Total Amount inclusive of (?:all )?[Tt]axes[^\d]{0,20}([\d,]+(?:\.\d{1,2})?)/i) ||
+          grab(text, /(?:Order Price|LOA Value|Contract Price)[^I₹\d]{0,30}(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)(?:\s*\/\-)?/i)
+        );
+        const basic = parseAmt(
+          grab(text, /(?:Basic Total|Total (?:Cost )?Excl(?:uding)?\.?\s*GST|FOR Price[^\d]{0,30})[^\d]{0,25}([\d,]+(?:\.\d{1,2})?)/i) ||
+          // GBPL Annexure-I: "Sub-Total  6,30,00,800" (basic = subtotal before GST)
+          grab(text, /Sub-Total\s+([\d,]+(?:\.\d{1,2})?)/i)
+        );
+        const gst = parseAmt(
+          grab(text, /(?:Integrated GST|IGST|CGST|Applicable GST|GST)\s*@?\s*(?:\d+%)?[^\d]{0,20}([\d,]+(?:\.\d{1,2})?)/i)
+        );
+        if (gross && basic) return { single: true, totalBasic: basic, totalGst: gst != null ? gst : gross - basic, totalGross: gross, grossPage: pageOf(grab(text, /([\d,]+\.\d{2})\s*(?:$|\n)?/) || '') };
+        if (basic && gst != null) return { single: true, totalBasic: basic, totalGst: gst, totalGross: basic + gst, grossPage: '' };
+        // Offer / quotation with "GST extra": the TOTAL is the BASIC; GST is computed at the stated rate.
+        if (/GST\s*(?:shall be\s*)?extra/i.test(text)) {
+          let tb = null, tbStr = '';
+          for (const m of text.matchAll(/\bTOTAL\b[^\d]{0,12}([\d,]+\.\d{2})/gi)) { const v = parseAmt(m[1]); if (v && (tb == null || v > tb)) { tb = v; tbStr = m[1]; } }
+          if (tb) {
+            const rm = /GST Rate is\s*(\d{1,2})/i.exec(text) || /(\d{1,2})\s*%/.exec(grab(text, /GST[^.]{0,40}?(\d{1,2}\s*%)/i) || '');
+            const rate = rm ? (+rm[1] / 100) : 0.18;
+            return { single: true, gstExtra: true, gstRate: Math.round(rate * 100), totalBasic: tb, totalGst: Math.round(tb * rate * 100) / 100, totalGross: Math.round(tb * (1 + rate) * 100) / 100, grossPage: pageOf(tbStr) };
+          }
+        }
+        // ── GBPL / IndiGrid LOA: Annexure-I price breakup (Supply + Services = Sub-Total + GST = Total)
+        // Trained on GBPL_ETC_LOA.pdf: Supply 3,80,66,400 | Services 2,49,34,400 | Sub-Total 6,30,00,800 | GST@18% 1,13,40,144 | Total 7,43,40,944
+        const annexSupply  = parseAmt(grab(text, /(?:^|\n)\s*1?\s*Supply Value\s+([\d,]+(?:\.\d{1,2})?)/im));
+        const annexService = parseAmt(grab(text, /Services Value[^\n]{0,60}?([\d,]+(?:\.\d{1,2})?)\s*(?:\n|$)/im));
+        const annexSub     = parseAmt(grab(text, /Sub[-\s]?Total\s+([\d,]+(?:\.\d{1,2})?)/im));
+        const annexGST     = parseAmt(grab(text, /GST\s*@\s*18%\s+([\d,]+(?:\.\d{1,2})?)/im) ||
+                                       grab(text, /GST\s*@\s*\d+%[^\d]{0,10}([\d,]+(?:\.\d{1,2})?)/im));
+        const annexTotal   = parseAmt(grab(text, /Total Amount inclusive of (?:all )?[Tt]axes\s+([\d,]+(?:\.\d{1,2})?)/im));
+        if (annexSupply && annexService && annexTotal) {
+          // Validation: supply + service should equal subtotal
+          const calcSub = annexSupply + annexService;
+          const subOk = !annexSub || Math.abs(calcSub - annexSub) < 5;
+          if (subOk) {
+            return {
+              annexure: true,
+              supplyBasic: annexSupply, installBasic: annexService,
+              totalBasic: annexSub || calcSub,
+              totalGst: annexGST || (annexTotal - (annexSub || calcSub)),
+              totalGross: annexTotal,
+              supplyGross: null, installGross: null,
+              grossPage: pageOf('Total Amount inclusive')
+            };
+          }
+        }
+        // ── Last resort: review the COMPLETE document, rank every financial value by context
+        // (and confirm against amounts written in words), then finalize the awarded value.
+        const resolved = resolveAwardedValue(text);
+        if (resolved) return resolved;
+        return null;
+      })();
+
+      d.period = (() => {
+        // GBPL LOA style: explicit completion dates (Mechanical Completion + final charging)
+        const mechComp = grab(text, /Mechanical Completion by\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})/i);
+        const finalCharge = grab(text, /final charging by\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})/i);
+        if (mechComp) {
+          const compStr = `Mechanical Completion: ${mechComp}` + (finalCharge ? `; Final Charging: ${finalCharge}` : '');
+          // Also set completion date field directly
+          setTimeout(() => { const el=document.getElementById('f_compDate'); if(el&&!el.value){el.value=finalCharge||mechComp;el.classList.add('filled');} }, 50);
+          return compStr + cite('Mechanical Completion');
+        }
+        let m = /(\d{1,2})\s*\(?[A-Za-z]*\)?\s*months?\s*from the date of issue/i.exec(text);
+        if (m) return `${m[1]} months from the LoA Date.${cite('months from the date of issue')}`;
+        m = /accomplished within\s*(\d{1,3})\s*(month|week|day)s?\s*from the (?:PO date|order date|date)/i.exec(text)
+          || /within\s*(\d{1,3})\s*(month|week|day)s?\s*from the (?:PO|order|LoA)\s*date/i.exec(text)
+          || /Completion period\s*[:\-][^.\n]*?(\d{1,3})\s*(month|week|day)/i.exec(text);
+        if (m) return `${m[1]} ${m[2]}${+m[1] > 1 ? 's' : ''} from the order date.${cite(m[0])}`;
+        m = /completed within[^.]*?(Erection plan[^.\n)]*\)?)/i.exec(text);
+        if (m) return `As per the submitted ${clean(m[1])}.${cite('Erection plan')}`;
+        return '';
+      })();
+      d.commence = (() => {
+        let m = /Time for Commencement period is\s*(\d{1,3})\s*days/i.exec(text);
+        if (m) return `${m[1]} days from receipt of the NOA.${cite('Time for Commencement')}`;
+        m = /acknowledge[^.]*?within\s*(\d{1,2})\s*(?:business\s*)?days/i.exec(text);
+        if (m) return `Acknowledge / accept the order within ${m[1]} days of issuance.${cite('acknowledge')}`;
+        return '';
+      })();
+      d.dlp = (() => {
+        let m = /Defect Liability Period shall be\s*(\d{1,3})\s*month/i.exec(text);
+        if (m) return `${m[1]} months from the date of completion of the facilities.${cite('Defect Liability Period shall be')}`;
+        // GBPL style: "twenty-four (24) months from the date of Operational Acceptance"
+        m = /(?:DLP|Defect Liability Period)[^.]{0,80}?(\d{1,3})\s*\)\s*months?\s+from/i.exec(text) ||
+            /Defect Liability Period[^.]{0,80}?(\d{1,3})\s*months?/i.exec(text);
+        if (m) return `${m[1]} months from the date of Operational Acceptance.${cite('Defect Liability Period')}`;
+        return framePoints(sentencesWith(text, ['defect liability period', 'dlp', 'operational acceptance'], 2));
+      })();
+      d.ld = (() => {
+        const pct = grab(text, /liquidated damages?\s*(?:of|at)?\s*(\d+(?:\.\d+)?)\s*%/i) || grab(text, /\bLD\s*@?\s*(\d+(?:\.\d+)?)\s*%/i);
+        const cap = grab(text, /(?:exceed|maximum of)\s*(\d+(?:\.\d+)?)\s*%[^.]{0,40}?unexecuted/i)
+          || grab(text, /(\d+(?:\.\d+)?)\s*%\s*of\s*(?:the\s*)?(?:value of\s*)?unexecuted/i)
+          || grab(text, /to\s*(\d+(?:\.\d+)?)\s*%\s*of the total contract/i);
+        if (pct) {
+          const perWeek = /per (?:each )?week|for (?:each|every) week|each week/i.test(text);
+          const capBase = /unexecuted/i.test(text) ? 'the value of unexecuted works' : 'the total contract value';
+          return `Liquidated damages of ${pct}%${perWeek ? ' per week of delay' : ' for delay'}${cap ? `, capped at ${cap}% of ${capBase}` : ''}.${cite('liquidated damages') || cite('LD @')}`;
+        }
+        return framePoints(sentencesWith(text, ['liquidated damages', 'unexecuted works', 'ld @'], 2));
+      })();
+      d.warranty = (() => {
+        const days = grab(text, /attend the faults?[\s\S]{0,50}?within\s*(?:maximum\s*)?(\d+)\s*days/i);
+        const pen = grab(text, /(?:rupees|Rs\.?)\s*([\d,]+(?:\.\d+)?)[\s\S]{0,30}?per defect per day/i);
+        const dlpM = grab(text, /Defect Liability Period shall be\s*(\d{1,3})\s*month/i);
+        if (days || pen) return `${dlpM ? `Guarantee for ${dlpM} months from completion. ` : ''}Faults to be detected and attended within ${days || '__'} days at the contractor's cost; otherwise a penalty of Rs. ${pen || '__'} per defect per day applies.${cite('attend the faults')}`;
+        return framePoints(sentencesWith(text, ['guarantee', 'warranty'], 2));
+      })();
+      d.advance = (() => {
+        const pct = grab(text, /advance payment[\s\S]{0,60}?(\d+(?:\.\d+)?)\s*%/i);
+        const bg = grab(text, /Bank Guarantee for\s*(?:the\s*)?(\d+(?:\.\d+)?)\s*%/i);
+        if (pct) return `Advance of up to ${pct}% of the FOR price${bg ? `, against a bank guarantee for ${bg}% of the advance` : ''}.${cite('advance payment')}`;
+        const off = grab(text, /(\d{1,3})\s*%\s*Advance/i);
+        if (off) return `Advance of ${off}% (against team mobilisation).${cite(off + '% Advance') || cite('Advance')}`;
+        return framePoints(sentencesWith(text, ['advance payment', 'instalments'], 2));
+      })();
+      d.security = (() => {
+        // GBPL LOA style: ABG (10% supply) + PBG (10% total contract) + CPBG (10% services)
+        const hasABG  = /Advance Bank Guarantee|ABG/i.test(text);
+        const hasPBG  = /Performance Bank Guarantee|PBG/i.test(text);
+        const hasCPBG = /Contract Performance Bank Guarantee|CPBG/i.test(text);
+        if (hasABG || hasPBG || hasCPBG) {
+          const parts = [];
+          if (hasABG)  { const v=grab(text,/ABG[^.]{0,100}?(10%[^.]{0,60}supply[^.]*\.)/i)||grab(text,/Advance Bank Guarantee[^.]{0,120}\./i); parts.push('• ABG: '+(v||'10% of total supply value, valid until completion + 3 months')); }
+          if (hasPBG)  { const v=grab(text,/Performance Bank Guarantee[^.]{0,200}(10%[^.]{0,120}Contract Price[^.]*\.)/i)||grab(text,/7\.2[^.]{0,200}\./i); parts.push('• PBG: '+(v||'10% of total Contract Price (Supply + Services), valid for DLP of 24 months + 3 months')); }
+          if (hasCPBG) { const v=grab(text,/Contract Performance Bank Guarantee[^.]{0,200}(10%[^.]{0,120}Services[^.]*\.)/i)||grab(text,/7\.3[^.]{0,200}\./i); parts.push('• CPBG: '+(v||'10% of total Services Value, valid until completion of all contractual obligations')); }
+          return parts.join('\n') + cite('Bank Guarantee');
+        }
+        const amts = [];
+        for (const m of text.matchAll(/Performance Security[\s\S]{0,160}?Rs\.?\s*([\d,]+(?:\.\d{1,2})?)/gi)) if (!amts.includes(m[1])) amts.push(m[1]);
+        if (!amts.length) return framePoints(sentencesWith(text, ['performance security', 'security deposit'], 2));
+        return `Performance security of ${amts.map(a => '₹' + a).join(' + ')} (≈3% of contract price${amts.length > 1 ? ', Part-I + Part-II' : ''}).${cite('Performance Security')}`;
+      })();
+      d.payment = (() => {
+        // GBPL LOA 10/80/10 pattern — Supply Component + Services Component
+        const isGBPLStyle = /Supply Component|Services.*Erection.*Testing.*Commissioning|Running Account.*RA Bills|MRC.*Material Receipt/i.test(text);
+        if (isGBPLStyle) {
+          const lines = [];
+          // Supply milestones
+          const s1 = grab(text, /5\.1\.1[^%]{0,30}(Ten percent.*?(?:Advance Bank Guarantee|ABG)[^.]*\.)/is) ||
+                     grab(text, /(10%[^.]{0,80}advance[^.]*ABG[^.]*\.)/i);
+          const s2 = grab(text, /5\.1\.2[^%]{0,30}(Eighty percent.*?(?:Material Receipt|MRC)[^.]*\.)/is) ||
+                     grab(text, /(80%[^.]{0,100}(?:materials at site|MRC)[^.]*\.)/i);
+          const s3 = grab(text, /5\.1\.3[^%]{0,30}(Balance Ten percent.*?(?:Performance Bank Guarantee|PBG)[^.]*\.)/is) ||
+                     grab(text, /(10%[^.]{0,80}(?:charging|PBG)[^.]*\.)/i);
+          // Services milestones
+          const sv1 = grab(text, /5\.2\.1[^%]{0,30}(Ten percent.*?(?:mobilization|CPBG)[^.]*\.)/is);
+          const sv2 = grab(text, /5\.2\.2[^%]{0,30}(Eighty percent.*?RA Bills[^.]*\.)/is);
+          const sv3 = grab(text, /5\.2\.3[^%]{0,30}(Balance Ten percent.*?(?:commissioning|handing over)[^.]*\.)/is);
+          if (s1 || s2 || s3 || sv1 || sv2 || sv3) {
+            if (s1||s2||s3) { lines.push('Supply Component:'); [s1,s2,s3].filter(Boolean).forEach(l=>lines.push('• '+l.replace(/\s+/g,' ').trim())); }
+            if (sv1||sv2||sv3) { lines.push('Services Component:'); [sv1,sv2,sv3].filter(Boolean).forEach(l=>lines.push('• '+l.replace(/\s+/g,' ').trim())); }
+            return lines.join('\n') + cite('Payment Terms');
+          }
+        }
+        // Explicit "Payment Terms" block with numbered % milestones (service POs etc.)
+        const blk = grab(text, /Payment Terms\s*[:\-]+\s*([\s\S]{0,700}?)(?:Special Remarks|Payment shall be only|Annexure|Our Billing|TDS will|\n\d{2}\.\s|$)/i);
+        if (blk && /\d+\s*%/.test(blk)) {
+          const pts = blk.split(/\n+|(?=\d\s*\)\s)|(?=\d\.\s)/).map(s => s.replace(/^[\s•\-]+/, '').trim()).filter(s => s.length > 8 && /\d+\s*%|JMC|TOC|reconcil|RA bill/i.test(s));
+          if (pts.length) return framePoints(pts.map(p => '• ' + p).join('\n')) + cite('Payment Terms');
+        }
+        // Offer / T&C style: a milestone line with several %s (e.g. 20% Advance, 70% RA bill, 10% completion)
+        const gen = grab(text, /(\d{1,3}\s*%\s*(?:Advance|on)[\s\S]{0,300}?(?:Completion of (?:the )?project|completion of work|on TOC|Project TOC|Asset tagging))/i);
+        if (gen && (gen.match(/\d{1,3}\s*%/g) || []).length >= 2) {
+          const parts = gen.split(/\s*,\s*|\s+and\s+|(?=\b(?:balance\s+)?\d{1,3}\s*%)/i).map(s => s.replace(/^[\s•\-]+/, '').trim()).filter(s => /\d{1,3}\s*%/.test(s));
+          return framePoints(parts.map(p => '• ' + p).join('\n')) + cite(gen.slice(0, 18));
+        }
+        return framePoints(sentencesWith(text, ['terms of payment', 'procedures of payment', 'appendix-1', '% of the contract value', 'released against'], 3));
+      })();
+      d.variation = framePoints(sentencesWith(text, ['quantity variation', 'price adjustment', 'mobilization of materials', 'in lots', 'l-2 schedule'], 3));
+      d.insurance = framePoints(sentencesWith(text, ['transit insurance', 'erection insurance', 'workmen compensation', 'general liability', 'clause no. 34'], 4) || sentencesWith(text, ['insurance'], 2));
+      d.billing = framePoints(sentencesWith(text, ['raise invoice', 'billing unit', 'milestone', 'without installation testing'], 3));
+      d.concerns = framePoints(sentencesWith(text, ['at your risk', 'risk, cost', 'single source responsibility', 'breach of the entire contract', 'critical defect', 'no separate time period', 'without further reference', 'not interested in this offer', 'terminate', 'liquidated damages', 'defect liability', 'bank guarantee', 'ceig', 'getco', 'guvnl', 'statutory approval', 'mutatis mutandis', 'time is of essence'], 8));
+      d.technical = framePoints(sentencesWith(text, ['type testing', 'nabl', 'approved vendor', 'without deviation', 'is specification', 'as built', 'pre-dispatch inspection', 'gtp', 'abt meter', 'ceig', 'earthing', 'cable termination', 'commissioning', '33 kv', '220 kv', 'bess', 'idt', 'inverter duty'], 6));
+
+      // ── AMENDMENT DETECTION ──────────────────────────────────────────────
+      // Trained on: GBPL–Advait Amendment No.01, Supply Order 5150001058 + Service Order 5170004282
+      // Handles: Amendment No., Original Contract Price, Additional Contract Value, Revised Total
+      const isAmendment = /Amendment No\.\s*0?\d|Amendment\s+to\s+(?:Supply|Service|Work)\s+Order/i.test(text);
+      if (isAmendment) {
+        // Original Contract Price
+        const origPrice = parseAmt(grab(text, /Original Contract Price\s*[:\-]?\s*(?:INR|Rs\.?)\s*([\d,]+(?:\.\d{2})?)/i));
+        // Additional Contract Value
+        const addlValue = parseAmt(grab(text, /Additional Contract Value[\s\S]{0,60}?(?:INR|Rs\.?)\s*([\d,]+(?:\.\d{2})?)/i));
+        // Revised Total Contract Price
+        const revTotal = parseAmt(grab(text, /Revised Total Contract Price\s*[:\-]?\s*(?:INR|Rs\.?)\s*([\d,]+(?:\.\d{2})?)/i));
+        // Amendment number
+        const amendNo = clean(grab(text, /Amendment No\.?\s*(\d+|[A-Z]{2})/i) || grab(text, /(Amendment No\.?\s*0?\d)/i));
+        // Supply Order / Service Order references
+        const supplyOrdRef = clean(grab(text, /Supply Order No\.?\s*([A-Za-z0-9]+)/i));
+        const serviceOrdRef = clean(grab(text, /Service Order No\.?\s*([A-Za-z0-9]+)/i));
+        // Amendment date
+        const amendDate = clean(grab(text, /made on this\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+day of\s+[A-Za-z]+\s+\d{4})/i) ||
+                                 grab(text, /Date\s*[:\-]\s*(\d{1,2}[./\-]\d{1,2}[./\-]\d{4})/i));
+        // Scope: Annexure-I(A) items count
+        const annexItems = (text.match(/not included in original scope/gi) || []).length;
+
+        let amendSummary = '';
+        if (amendNo) amendSummary += `Amendment: ${amendNo}`;
+        if (supplyOrdRef) amendSummary += `\nSupply Order Ref: ${supplyOrdRef}`;
+        if (serviceOrdRef) amendSummary += `\nService Order Ref: ${serviceOrdRef}`;
+        if (!d.loa && (supplyOrdRef || serviceOrdRef)) d.loa = [supplyOrdRef, serviceOrdRef].filter(Boolean).join(' / ');
+        if (!d.loaDate && amendDate) d.loaDate = amendDate;
+        if (annexItems > 0) amendSummary += `\n${annexItems} additional scope items added (Annexure-I(A))`;
+
+        if (origPrice || addlValue || revTotal) {
+          const fmtV = v => v ? '₹' + fmtINR(v) : '—';
+          amendSummary += `\n\nContract Price Summary:\n• Original Contract Price: ${fmtV(origPrice)}\n• Additional Value (this Amendment): ${fmtV(addlValue)}\n• Revised Total Contract Price: ${fmtV(revTotal)}`;
+          // Populate value table with Amendment totals (Supply + Services breakdown)
+          const supplySubtotal = parseAmt(grab(text, /Sub-Total[\s\S]{0,30}?([\d,]{7,}\.\d{2})/i));
+          const serviceSubtotal = parseAmt(grab(text, /Sub-Total[\s\S]{0,80}?([\d,]{6,}\.\d{2})\s*$/m));
+          const totalPlusTax = parseAmt(grab(text, /With Taxes\s*([\d,]+\.\d{2})/i));
+          const supSvc = parseAmt(grab(text, /Total Supply \+ Services\s*([\d,]+\.\d{2})/i));
+          if (supSvc) { const el = document.getElementById('v_Basic_Total'); if(el){el.value=fmtINR(supSvc);el.classList.add('filled');} }
+          if (totalPlusTax) {
+            const el = document.getElementById('v_Gross_Total'); if(el){el.value=fmtINR(totalPlusTax);el.classList.add('filled');}
+            const gstV = supSvc ? totalPlusTax - supSvc : null;
+            if(gstV){ const eg=document.getElementById('v_GST_Total'); if(eg){eg.value=fmtINR(gstV);eg.classList.add('filled');} }
+          }
+          if (supplySubtotal) { const es=document.getElementById('v_Basic_Supply'); if(es){es.value=fmtINR(supplySubtotal);es.classList.add('filled');} }
+          if (serviceSubtotal) { const ei=document.getElementById('v_Basic_Installation'); if(ei){ei.value=fmtINR(serviceSubtotal);ei.classList.add('filled');} }
+        }
+        if (amendSummary) {
+          const existingScope = d.scope || '';
+          d.scope = (existingScope ? existingScope + '\n\n' : '') + amendSummary;
+        }
+        // Flag amendment-specific concerns
+        const amendConcerns = framePoints(sentencesWith(text, ['mutatis mutandis', 'no other change', 'terms and conditions of the original', 'unless expressly modified', 'integral part'], 4));
+        if (amendConcerns) d.concerns = (d.concerns ? d.concerns + '\n' : '') + amendConcerns;
+      }
+
+      // ── UPPTCL / LARGE EPC CONTRACT PATTERNS ────────────────────────────
+      // Trained on: UPPTCL PKG-2 Contract Agreement (232-page scanned PDF, PDFill producer)
+      // Handles: Contract Agreement (vs LOA), UPPTCL transmission projects, EPC multi-package contracts
+      const isContractAgreement = /Contract Agreement|Agreement No|this Agreement|Agreement for/i.test(text);
+      const isUPPTCL = /UPPTCL|Uttar Pradesh Power Transmission|U\.P\. Power Transmission/i.test(text);
+      if (isContractAgreement || isUPPTCL) {
+        // Agreement number pattern
+        if (!d.loa) {
+          d.loa = clean(grab(text, /Agreement No\.?\s*[:\-]?\s*([A-Za-z0-9\/\-\.]+)/i) ||
+                        grab(text, /Contract No\.?\s*[:\-]?\s*([A-Za-z0-9\/\-\.]+)/i));
+        }
+        // Package/Lot reference (common in UPPTCL multi-package tenders)
+        const pkg = clean(grab(text, /(?:Package|Pkg|PKG|Package No|LOT)\s*[:\-\.#]?\s*([A-Za-z0-9\-]+)/i));
+        if (pkg && !d.title.includes(pkg)) {
+          d.title = (d.title ? d.title + ' — Package ' + pkg : 'UPPTCL Contract — Package ' + pkg);
+        }
+        // Employer / Owner detection (UPPTCL context)
+        if (!d.utility || d.utility.length < 4) {
+          d.utility = clean(grab(text, /(?:Employer|Owner|Client)\s*[:\-]\s*([A-Za-z][\w &.,()]{6,80}?(?:Limited|Ltd|Corporation|Board|Authority|Nigam|UPPTCL))/i));
+        }
+        // Contract price for EPC agreement (may say "Contract Price" or "Agreement Price")
+        const contractPrice = parseAmt(grab(text, /Contract Price\s*[:\-]?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+\.\d{2})/i) ||
+                                        grab(text, /Total Contract (?:Amount|Value)\s*[:\-]?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+\.\d{2})/i));
+        if (contractPrice) {
+          const el = document.getElementById('v_Gross_Total'); if(el && !el.value){el.value=fmtINR(contractPrice);el.classList.add('filled');}
+        }
+        // Milestone payment terms (common in UPPTCL EPC)
+        const milestoneBlock = grab(text, /(?:Payment Schedule|Milestone|Payment Milestone)[\s\S]{0,1200}?(?=\d{1,2}\.\s+[A-Z]|Annexure|$)/i);
+        if (milestoneBlock && /\d+\s*%/.test(milestoneBlock) && !d.payment) {
+          d.payment = framePoints(milestoneBlock.split(/\n+/).filter(l => /\d+\s*%|milestone|commissioning|on completion|TOC/i.test(l)).slice(0,8).map(l=>'• '+l.trim()).join('\n')) + cite('Payment Schedule');
+        }
+        // Performance security (typically 10% in UPPTCL)
+        if (!d.security || d.security.length < 10) {
+          d.security = framePoints(sentencesWith(text, ['performance security', 'performance bank guarantee', 'pbg', 'retention money', '10%'], 4));
+        }
+        // Specific UPPTCL concern patterns
+        const upConcerns = framePoints(sentencesWith(text, ['free issue material', 'fit for purpose', 'time is of essence', 'force majeure', 'dispute resolution', 'arbitration', 'termination for convenience'], 6));
+        if (upConcerns) d.concerns = (d.concerns ? d.concerns + '\n' : '') + upConcerns;
+      }
+
+      return d;
+    }
+
+    function populate(d) {
+      const map = ['title','utility','contractor','scope','loa','tender','loaDate','period','commence','qty','variation','security','advance','warranty','dlp','ld','payment','insurance','billing','concerns','technical'];
+      for (const k of map) if (d[k]) setIfFound(k, d[k]);
+      const setC = (r, c, v) => { const el = document.getElementById(`v_${r}_${c}`); if (el && v != null) { el.value = fmtINR(v); el.classList.add('filled'); } };
+      const V = d.value;
+      if (V && V.component) {
+        const sc = (r,c,v) => { const e=document.getElementById(`v_${r}_${c}`); if(e&&v!=null){e.value=fmtINR(v);e.classList.add('filled');} };
+        sc('Basic','Supply',       V.supplyBasic);
+        sc('Basic','Installation', V.installBasic);
+        sc('Basic','Total',        V.totalBasic);
+        sc('Gross','Total',        V.totalGross);
+        if (V.gstMode === 'individual' && V.supplyGst != null) {
+          sc('GST','Supply',       V.supplyGst);
+          sc('GST','Installation', V.installGst);
+          sc('GST','Total',        (V.supplyGst || 0) + (V.installGst || 0));
+          sc('Gross','Supply',     V.supplyBasic + (V.supplyGst || 0));
+          sc('Gross','Installation', V.installBasic + (V.installGst || 0));
+        } else {
+          sc('GST','Total',        V.totalGst);
+        }
+        const note = `Component table: Supply ₹${fmtINR(V.supplyBasic)} + Installation ₹${fmtINR(V.installBasic)} = Project Cost ₹${fmtINR(V.totalBasic)}; GST (${V.gstMode}) ₹${fmtINR(V.totalGst)}; Grand Total ₹${fmtINR(V.totalGross)}${V.grossPage ? ` (p.${V.grossPage})` : ''}.`;
+        const ex = val('security'); setVal('security', ex ? ex + '\n' + note : note);
+        document.getElementById('f_security')?.classList.add('filled');
+      } else if (V && V.annexure) {
+        // GBPL Annexure-I style: explicit Supply + Services breakdown
+        const sc = (r,c,v) => { const e=document.getElementById(`v_${r}_${c}`); if(e&&v!=null){e.value=fmtINR(v);e.classList.add('filled');} };
+        sc('Basic','Supply',    V.supplyBasic);
+        sc('Basic','Installation', V.installBasic);
+        sc('Basic','Total',     V.totalBasic);
+        sc('GST',  'Total',     V.totalGst);
+        sc('Gross','Total',     V.totalGross);
+        // Compute GST split proportionally across supply/service
+        if (V.totalGst && V.totalBasic) {
+          const gstRate = V.totalGst / V.totalBasic;
+          sc('GST','Supply',      V.supplyBasic  * gstRate);
+          sc('GST','Installation',V.installBasic * gstRate);
+          sc('Gross','Supply',    V.supplyBasic  * (1 + gstRate));
+          sc('Gross','Installation',V.installBasic * (1 + gstRate));
+        }
+        const note = `Annexure-I breakup: Supply ₹${fmtINR(V.supplyBasic)} + Services ₹${fmtINR(V.installBasic)} = Sub-Total ₹${fmtINR(V.totalBasic)}; GST ₹${fmtINR(V.totalGst)}; Total incl. taxes ₹${fmtINR(V.totalGross)}${V.grossPage ? ` (p.${V.grossPage})` : ''}.`;
+        const ex = val('security'); setVal('security', ex ? ex + '\n' + note : note);
+        document.getElementById('f_security')?.classList.add('filled');
+      } else if (V && V.single) {
+        setC('Basic','Total',V.totalBasic); setC('GST','Total',V.totalGst); setC('Gross','Total',V.totalGross);
+        const note = V.gstExtra
+          ? `Order value — quoted basic ₹${fmtINR(V.totalBasic)}; GST extra @ ${V.gstRate}% = ₹${fmtINR(V.totalGst)}; gross ₹${fmtINR(V.totalGross)}${V.grossPage ? ` (p.${V.grossPage})` : ''} (GST computed — verify rate).`
+          : `Order value — single line item: Basic ₹${fmtINR(V.totalBasic)} + GST ₹${fmtINR(V.totalGst)} = ₹${fmtINR(V.totalGross)}${V.grossPage ? ` (p.${V.grossPage})` : ''}.`
+          + (V.lowConfidence ? ' ⚠ OCR may have misread this figure (possible dropped decimal) — verify against the scan.' : '');
+        const ex = val('security');
+        setVal('security', ex ? ex + '\n' + note : note);
+        document.getElementById('f_security')?.classList.add('filled');
+      } else if (V) {
+        setC('Gross','Supply',V.supplyGross); setC('Gross','Installation',V.installGross); setC('Gross','Total',V.totalGross);
+        if (V.supplyBasic != null) { setC('Basic','Supply',V.supplyBasic); setC('GST','Supply',V.supplyGst); }
+        if (V.installBasic != null) { setC('Basic','Installation',V.installBasic); setC('GST','Installation',V.installGst); }
+        if (V.supplyBasic != null && V.installBasic != null) {
+          setC('Basic','Total',V.supplyBasic + V.installBasic);
+          setC('GST','Total',V.supplyGst + V.installGst);
+        }
+        const note = `Order value — gross from p.${V.grossPage}${V.supplyPage ? `; Basic/GST from p.${V.supplyPage}` : ''}${V.installPage && V.installPage !== V.supplyPage ? ` & p.${V.installPage}` : ''}. PBG @ 3% of total ≈ ₹${fmtINR(V.totalGross * 0.03)}.${V.derived ? ` (${V.derived} Basic/GST derived at the same GST rate — verify against the LOA.)` : ''}`;
+        const ex = val('security');
+        setVal('security', ex ? ex + '\n' + note : note);
+        document.getElementById('f_security')?.classList.add('filled');
+      }
+      computeCompletion();
+    }
+
+    function renderHelpers(text) {
+      const dates = uniqueMatches(text, [
+        /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\b/gi,
+        /\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}\b/g
+      ], 12);
+      const amounts = uniqueMatches(text, [/(?:Rs\.?|INR|₹)\s?[\d,]+(?:\.\d{1,2})?/gi], 16);
+      renderChips('chip-dates', dates, v => { setVal('loaDate', v); computeCompletion(); });
+      renderChips('chip-amounts', amounts, v => copyText(v));
+      document.getElementById('helpers').style.display = (dates.length || amounts.length) ? 'block' : 'none';
+    }
+
+    function computeCompletion() {
+      const d = parseDate(val('loaDate'));
+      const m = /(\d{1,2})\s*month/i.exec(val('period'));
+      if (d && m) { const out = new Date(d); out.setMonth(out.getMonth() + parseInt(m[1], 10)); setVal('compDate', fmtDate(out)); }
+    }
+    document.addEventListener('input', e => { if (e.target.id === 'f_loaDate' || e.target.id === 'f_period') computeCompletion(); });
+
+    function buildText() {
+      const out = [];
+      for (const f of FIELDS) {
+        if (f.type === 'value') { out.push(valueText()); continue; }
+        const v = val(f.id);
+        out.push(f.type === 'area' ? `${f.label} :\n${v}` : `${f.label} : ${v}`);
+      }
+      return out.join('\n\n');
+    }
+    function valueText() {
+      const lines = ['Order Value (Rs.) :'];
+      for (const r of VALUE_ROWS) lines.push(`  ${r.padEnd(6)} | Supply: ${cell(r,'Supply')||'-'} | Installation: ${cell(r,'Installation')||'-'} | Total: ${cell(r,'Total')||'-'}`);
+      return lines.join('\n');
+    }
+    function buildWord() {
+      const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      const v = id => esc(val(id));
+      const has = id => !!val(id).trim();
+      const qn = (val('qty').match(/[\d,]+(?:\.\d+)?/) || [''])[0];
+      const qunit = /\bCKM\b/i.test(val('qty')) ? 'CKM' : (/\bkm\b/i.test(val('qty')) ? 'km' : 'Qty');
+      const sc = val('scope');
+      const type = (/supply/i.test(sc) && /installation|erection/i.test(sc)) ? 'Supply &amp; Installation'
+        : (/stringing|construction|erection|service/i.test(sc) ? 'Service / Works'
+          : (/supply/i.test(sc) ? 'Supply' : ''));
+      const vt = `<table class="vt">` +
+        `<tr><td class="vk"></td><td class="vh">Supply</td><td class="vh">Installation</td><td class="vh">Total</td></tr>` +
+        `<tr><td class="vk">Qty (${qunit})</td><td>${esc(qn) || '-'}</td><td>${esc(qn) || '-'}</td><td>-</td></tr>` +
+        VALUE_ROWS.map(r => `<tr><td class="vk">${r}</td>${VALUE_COLS.map(c => `<td>${esc(cell(r, c)) || '-'}</td>`).join('')}</tr>`).join('') +
+        `</table>`;
+      const C = (label, value, span) => `<td${span ? ` colspan="${span}"` : ''}><span class="lab">${label}</span><br>${value || '&nbsp;'}</td>`;
+      const main = [
+        `<tr>${C('Project Title :', v('title'), 4)}</tr>`,
+        `<tr>${C('Customer :', v('utility'), 2)}${C('Utility :', v('utility'), 2)}</tr>`,
+        `<tr>${C('Scope &amp; Type of Work :', (type ? `<i>${type}</i><br>` : '') + v('scope'), 4)}</tr>`,
+        `<tr>${C('LoA # :', v('loa'), 2)}${C('LoA Date :', v('loaDate'), 2)}</tr>`,
+        `<tr>${C('Completion Period :', v('period'), 2)}${C('Completion Date :', v('compDate'), 2)}</tr>`,
+        (has('tender') || has('commence')) ? `<tr>${C('Tender / Notice No. :', v('tender'), 2)}${C('Time for Commencement :', v('commence'), 2)}</tr>` : '',
+        `<tr>${C('LoA Value :', vt, 4)}</tr>`,
+        `<tr>${C('Quantity / Price Variation :', v('variation'), 4)}</tr>`,
+        `<tr>${C('Security Deposit :', v('security'), 2)}${C('Warranty / Guarantee :', v('warranty'), 2)}</tr>`,
+        `<tr>${C('Liquidated Damages for delay :', v('ld'), 4)}</tr>`
+      ].join('');
+      const block = (label, value) => `<table class="blk"><tr>${C(label, value, 1)}</tr></table>`;
+      const payBlock = `<table class="blk">` +
+        `<tr>${C('Payment Terms :', v('payment'), 1)}</tr>` +
+        `<tr>${C('Advances :', has('advance') ? v('advance') : 'None', 1)}</tr>` +
+        `<tr>${C('Defect Liability Period :', v('dlp'), 1)}</tr>` +
+        `</table>`;
+      return `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">
+        <style>
+          body{font-family:Calibri,sans-serif;font-size:10.5pt;color:#1C1C1C;}
+          .band{background:#1A4084;color:#fff;padding:9px 12px;margin:0 0 10px;}
+          .band .t{font-size:14pt;font-weight:bold;} .band .s{font-size:8.5pt;color:#cfe0f4;}
+          table{border-collapse:collapse;width:100%;table-layout:fixed;margin:0 0 10px;}
+          td{border:1px solid #b9c4da;padding:5px 8px;vertical-align:top;font-size:10.5pt;word-wrap:break-word;}
+          .lab{color:#1A4084;font-weight:bold;}
+          table.vt{margin:6px 0 0;} table.vt td{text-align:right;}
+          table.vt td.vk{text-align:left;background:#eef4fb;color:#1A4084;font-weight:bold;width:20%;}
+          table.vt td.vh{text-align:center;background:#1A4084;color:#fff;font-weight:bold;}
+          .foot{font-size:8.5pt;color:#808080;margin-top:6px;}
+        </style></head>
+        <body>
+        <div class="band"><div class="t">${v('title') || 'Order Synopsis'}</div><div class="s">Order Synopsis &middot; Advait Energy Transitions Limited</div></div>
+        <table class="main">${main}</table>
+        ${payBlock}
+        ${block('Areas of Concern :', v('concerns'))}
+        ${block('Insurance :', v('insurance'))}
+        ${block('Billing &amp; Payment Process :', v('billing'))}
+        ${block('Technical Concerns :', v('technical'))}
+        <p class="foot">Auto-drafted from the order PDF. Page references (p.N) cite the source page. Verify every figure against the document.</p>
+        </body></html>`;
+    }
+    document.getElementById('copy').addEventListener('click', () => { copyText(buildText()); setStatus('Synopsis text copied to clipboard.', 'ok'); });
+    document.getElementById('word').addEventListener('click', () => {
+      const blob = new Blob([buildWord()], { type: 'application/msword' });
+      downloadBlob(blob, fileSafe(val('title') || 'Order_Synopsis') + '.doc');
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      if (confirm('Clear every field? Your edits will be lost.')) { buildForm(); document.getElementById('helpers').style.display = 'none'; setStatus('All fields cleared.', 'ok'); }
+    });
+
+    function setStatus(m, k) { statusEl.innerHTML = (k === 'busy' ? '<span class="spin"></span>' : '') + m; statusEl.className = 'status' + (k ? ' ' + k : ''); }
+    // Repair common OCR corruption in numbers: leading 5 read as '$', letters inside digit runs,
+    // a decimal point read as a space ("493571796 50"), and a space inserted inside a number ("88 842923.37").
+    function repairNumbers(t) {
+      return t
+        .replace(/\$(?=\d)/g, '5')
+        .replace(/(?<=\d)[OIlSBZ](?=\d)/g, c => ({ O: '0', I: '1', l: '1', S: '5', B: '8', Z: '2' }[c]))
+        .replace(/(?<![\d.])(\d{6,})\s+(\d{2})(?!\d)/g, '$1.$2')
+        .replace(/(?<![\d.])(\d{1,3})\s+(\d{3,}\.\d{2})\b/g, '$1$2');
+    }
+    function normalize(t) { return repairNumbers(t.replace(/\u0000/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()); }
+    function countWords(t) { return (t.match(/\b[\w]+\b/g) || []).length; }
+    function setVal(id, v) { const el = document.getElementById('f_' + id); if (el) el.value = v; }
+    function setIfFound(id, v) { const el = document.getElementById('f_' + id); if (el && v) { el.value = v; el.classList.add('filled'); } }
+    function clean(s) { return (s || '').replace(/\s+/g, ' ').replace(/^[:\-#\s]+/, '').trim(); }
+    function grab(text, re, g = 1) { const m = re.exec(text); return m ? (m[g] || '').trim() : ''; }
+    function normRef(s) { return (s || '').replace(/\s*\/\s*/g, '/').replace(/\s+/g, '').trim(); }
+    function deepRef(text) { const m = text.match(/\b[A-Z]{2,}[A-Za-z]*(?:\s*\/\s*[A-Za-z0-9.\-]+){3,}/g); if (!m) return ''; m.sort((a,b)=>b.length-a.length); return (m.find(x=>/LOA|LoA/.test(x)) || m[0]); }
+
+    const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    function pickDate(text) {
+      let m = /Date\s*[:\-]?\s*([0-3]?\d(?:\s?\d)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s*\d{4})/i.exec(text);
+      if (m) return clean(m[1]).replace(/^(\d)\s+(\d)/, '$1$2');
+      m = /\b([0-3]?\d\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{4})\b/i.exec(text);
+      if (m) return clean(m[1]);
+      // numeric date (PO / Service Order): DD.MM.YYYY, DD-MM-YYYY, DD/MM/YYYY
+      m = /(?:PO Date|Order Date|Dated|Date)\s*[.:\-]*\s*([0-3]?\d[.\-\/][01]?\d[.\-\/]\d{4})/i.exec(text);
+      // Amendment date: "07th day of February 2026" or "07.02.2026"
+      m = /(\d{1,2})(?:st|nd|rd|th)?\s+day\s+of\s+([A-Za-z]+)\s+(\d{4})/i.exec(text);
+      if (m) return `${m[1]} ${m[2].charAt(0).toUpperCase()+m[2].slice(1,3)} ${m[3]}`;
+      return m ? clean(m[1]) : '';
+    }
+    function parseDate(s) {
+      if (!s) return null;
+      let m = /(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{4})/.exec(s);
+      if (m) { const mi = MONTHS.indexOf(m[2].slice(0,3).toLowerCase()); if (mi >= 0) return new Date(+m[3], mi, +m[1]); }
+      m = /(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})/.exec(s);
+      if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2]-1, +m[1]); }
+      return null;
+    }
+    function fmtDate(d) { return `${String(d.getDate()).padStart(2,'0')} ${MONTHS[d.getMonth()].replace(/^./,c=>c.toUpperCase())} ${d.getFullYear()}`; }
+    function fmtINR(n) {
+      if (!isFinite(n)) return '';
+      let [i, d] = Math.abs(n).toFixed(2).split('.');
+      let last3 = i.slice(-3), rest = i.slice(0, -3);
+      rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+      return (n < 0 ? '-' : '') + (rest ? rest + ',' : '') + last3 + '.' + d;
+    }
+
+    function splitSentences(text) {
+      return text.replace(/\s+/g, ' ').split(/(?<=[.;:])\s+(?=[A-Z0-9(])|\n+/).map(s => s.trim()).filter(s => s.length > 25 && s.length < 600);
+    }
+    function sentencesWith(text, keywords, limit) {
+      const seen = new Set();
+      const hits = splitSentences(text).map((s, i) => ({ s, i, score: keywords.reduce((a, k) => a + (s.toLowerCase().includes(k) ? 1 : 0), 0) }))
+        .filter(x => x.score > 0).sort((a, b) => b.score - a.score || a.i - b.i);
+      const out = [];
+      for (const h of hits) { const key = h.s.slice(0, 40); if (seen.has(key)) continue; seen.add(key); out.push(h.s); if (out.length >= limit) break; }
+      return out.map(s => '• ' + s).join('\n');
+    }
+    function framePoints(bulletStr) {
+      if (!bulletStr) return '';
+      return bulletStr.split('\n').map(line => {
+        let s = line.replace(/^[•\-\s]+/, '').trim();
+        if (!s) return '';
+        const p = pageOf(s);
+        s = s.replace(/\s+/g, ' ').replace(/\s+([.,;:)])/g, '$1').replace(/\(\s+/g, '(').trim();
+        s = s.charAt(0).toUpperCase() + s.slice(1);
+        if (!/[.;:]$/.test(s)) s += '.';
+        return '• ' + s + (p ? ` (p.${p})` : '');
+      }).filter(Boolean).join('\n');
+    }
+
+    function uniqueMatches(text, patterns, limit) {
+      const out = [];
+      for (const p of patterns) for (const m of text.matchAll(p)) { const it = m[0].replace(/\s+/g, ' ').trim(); if (it && !out.includes(it)) out.push(it); if (out.length >= limit) return out; }
+      return out;
+    }
+    function renderChips(id, items, onClick) {
+      const c = document.getElementById(id); c.innerHTML = '';
+      items.forEach(it => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = it; s.addEventListener('click', () => onClick(it)); c.appendChild(s); });
+    }
+    function copyText(t) { if (navigator.clipboard) navigator.clipboard.writeText(t).catch(() => fb(t)); else fb(t); function fb(x){ const ta=document.createElement('textarea'); ta.value=x; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }
+    function downloadBlob(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u); }
+    function fileSafe(s) { return s.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'Order_Synopsis'; }
+
+    function buildUtility(text) {
+      const full = grab(text, /([A-Z][A-Za-z]+\s+Gujarat\s+Vij\s+Company\s+Limited)/);
+      const abbr = grab(text, /\b(PGVCL|DGVCL|MGVCL|UGVCL|GETCO|GSECL)\b/);
+      if (full && abbr) return `${full} - ${abbr}`;
+      if (full) return full;
+      const onBehalf = clean(grab(text, /(?:on Behalf of|issued by)\s+([A-Z][A-Za-z .,&]+(?:Limited|Ltd\.?|Corporation|Board|Nigam))/i));
+      if (onBehalf) return onBehalf;
+      // Outgoing offer/quotation: the recipient ("To, M/s X") is the customer — unless that recipient is Advait (then it's an incoming order).
+      const recip = clean(grab(text, /\bTo[,:]\s*(?:M\/s\.?\s*)?([A-Z][A-Za-z0-9 &.,'\-]{3,55}?(?:Private Limited|Limited|Ltd\.?|Pvt\.?\s*Ltd\.?|Corporation|Nigam|Board))/));
+      if (recip && !/advait/i.test(recip)) return recip;
+      // Incoming order: a company name (LIMITED) that is not the vendor (Advait)
+      const names = [...text.matchAll(/([A-Z][A-Za-z][A-Za-z &.,'\-]{6,70}?(?:PRIVATE LIMITED|LIMITED|LTD\.?|PVT\.?\s*LTD\.?|CORPORATION|NIGAM|BOARD))/g)]
+        .map(m => m[1].replace(/\s+/g, ' ').trim());
+      const issuer = names.find(n => !/advait/i.test(n));
+      // Amendment & EPC Contract: Owner is the customer
+      const ownerMatch = clean(grab(text, /(?:Owner|Employer|Client)\s*[:\-]\s*([A-Z][A-Za-z][\w &.,()]{4,70}?(?:Limited|Ltd\.?|Private Limited|Pvt\.?\s*Ltd\.?|Corporation|Nigam|Board|Authority))/i));
+      if (ownerMatch && !/advait/i.test(ownerMatch)) return ownerMatch;
+      // IndiGrid / GBPL patterns
+      const indiGrid = clean(grab(text, /(Gujarat BESS Private Limited|IndiGrid[\w ]*)/i));
+      if (indiGrid) return indiGrid;
+      return issuer || abbr || '';
+    }
+    function deriveTitle(text, util) {
+      // Amendment title
+      if (/Amendment No\.\s*0?\d|Amendment\s+to\s+(?:Supply|Service|Work)\s+Order/i.test(text)) {
+        const amendNo = clean(grab(text, /Amendment No\.?\s*(\d+)/i));
+        const project = clean(grab(text, /(?:MW|MWh|kV)[\s\S]{0,30}?(?:BESS|Solar|Wind|Transmission|Project)[\s\S]{0,40}?(?=at|near|for|,|\.|$)/i) ||
+                               grab(text, /(\d+\s*MW[\s\S]{0,60}?(?:BESS|Solar|Project))/i));
+        return (amendNo ? 'Amendment No. ' + amendNo + ' — ' : '') + (project || 'Contract Amendment');
+      }
+      // UPPTCL / Contract Agreement title
+      if (/UPPTCL|Uttar Pradesh Power Transmission/i.test(text)) {
+        const pkg = clean(grab(text, /(?:Package|PKG)\s*[:\-#]?\s*([A-Za-z0-9\-]+)/i));
+        return 'UPPTCL Contract' + (pkg ? ' — Package ' + pkg : '');
+      }
+      const abbr = (/(PGVCL|DGVCL|MGVCL|UGVCL|GETCO|GSECL)/.exec(util || '') || /(PGVCL|DGVCL|MGVCL|UGVCL|GETCO|GSECL)/.exec(text) || [])[1] || '';
+      const circle = (/([A-Za-z]+)\s+CIRCLE/i.exec(text) || /([A-Za-z]+)\s+DISTRICT/i.exec(text) || [])[1] || '';
+      const parts = [abbr, /RDSS/i.test(text) ? 'RDSS' : '', /MVCC/i.test(text) ? 'MVCC' : '', 'Project'].filter(Boolean);
+      let t = parts.join(' ');
+      if (circle) t += ' – ' + circle.charAt(0).toUpperCase() + circle.slice(1).toLowerCase() + ' Circle';
+      return t.trim() === 'Project' ? '' : t.trim();
+    }
+
+    buildForm();
+  </script>
+</body>
+</html>
